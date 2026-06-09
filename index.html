@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#090b10" />
+  <title>APX Bear Hunt Rally Optimizer</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <div class="logo-mark">APX</div>
+      <div>
+        <h1>APX Bear Hunt Rally Optimizer</h1>
+        <p>Created by Valdrak · v1.0 Beta · Mobile Polish</p>
+      </div>
+    </header>
+
+    <section class="card input-card">
+      <h2>Troop Counts</h2>
+      <div class="grid three">
+        <label>Infantry
+          <input id="infantry" type="number" min="0" step="1" value="100000" />
+        </label>
+        <label>Cavalry
+          <input id="cavalry" type="number" min="0" step="1" value="100000" />
+        </label>
+        <label>Archers
+          <input id="archers" type="number" min="0" step="1" value="150000" />
+        </label>
+      </div>
+    </section>
+
+    <section class="card input-card">
+      <h2>Bear Hunt Settings</h2>
+      <div class="grid two">
+        <label>Maximum Marches
+          <select id="joiners">
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </label>
+        <label>Alliance Rally Cap Limit
+          <select id="allianceCap">
+            <option value="30000">30,000</option>
+            <option value="35000">35,000</option>
+            <option value="40000">40,000</option>
+            <option value="50000">50,000</option>
+            <option value="60000">60,000</option>
+            <option value="65000" selected>65,000</option>
+            <option value="70000">70,000</option>
+            <option value="75000">75,000</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="check-row">
+        <input id="includeLeader" type="checkbox" checked />
+        Include Being a Rally Leader?
+      </label>
+
+      <div id="leaderSettings" class="leader-settings">
+        <div class="grid two">
+          <label>Rally Leader March Size
+            <input id="leaderSize" type="number" min="0" step="1" value="108500" />
+          </label>
+          <label>Rally Priority
+            <select id="priority">
+              <option value="leader">Prioritize Rally Leader</option>
+              <option value="joiners">Prioritize Joiners</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section id="recommendation" class="card recommendation-card">
+      <div class="rec-topline">
+        <h2>APX Recommendation</h2>
+        <span id="ratingBadge" class="badge">Calculating</span>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><span>Joiners</span><strong id="recJoiners">—</strong></div>
+        <div class="stat"><span>Joiner Size</span><strong id="recSize">—</strong></div>
+        <div class="stat"><span>Archer Ratio</span><strong id="recRatio">—</strong></div>
+        <div class="stat"><span>Rally Leader</span><strong id="recLeader">—</strong></div>
+        <div class="stat"><span>Total Joiner Output</span><strong id="recOutput">—</strong></div>
+      </div>
+      <p id="primaryNote" class="note"></p>
+      <button id="goButton" class="go-button" type="button">🔥 LET'S GOOO!</button>
+    </section>
+
+    <section id="details" class="details hidden">
+      <section class="card">
+        <h2>Joiner Breakdown</h2>
+        <div class="breakdown-list">
+          <div><span>Per Joiner Archers</span><strong id="joinArchers">—</strong></div>
+          <div><span>Per Joiner Infantry</span><strong id="joinInfantry">—</strong></div>
+          <div><span>Per Joiner Cavalry</span><strong id="joinCavalry">—</strong></div>
+          <div><span>Total Joiner Troops</span><strong id="joinTotal">—</strong></div>
+        </div>
+      </section>
+
+      <section id="leaderBreakdownCard" class="card">
+        <h2>Rally Leader Breakdown</h2>
+        <div class="breakdown-list">
+          <div><span>Leader Archers</span><strong id="leaderArchers">—</strong></div>
+          <div><span>Leader Infantry</span><strong id="leaderInfantry">—</strong></div>
+          <div><span>Leader Cavalry</span><strong id="leaderCavalry">—</strong></div>
+          <div><span>Leader Total</span><strong id="leaderTotal">—</strong></div>
+          <div><span>Status</span><strong id="leaderStatus">—</strong></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Troop Planner</h2>
+        <div id="planner" class="planner"></div>
+      </section>
+    </section>
+
+    <footer>
+      <p>Built for APX / Apex Predators • KingShot Bear Hunt</p>
+    </footer>
+  </main>
+  <script src="app.js?v=1.0.0-beta-mobile-polish"></script>
+</body>
+</html>
