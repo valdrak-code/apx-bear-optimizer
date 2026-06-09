@@ -148,9 +148,7 @@ input:focus, select:focus {
 .leader-settings { margin-top: 14px; }
 
 .recommendation-card {
-  position: sticky;
-  top: 8px;
-  z-index: 5;
+  position: static;
   border-color: rgba(255,213,110,.52);
   background:
     radial-gradient(circle at top right, rgba(255,213,110,.13), transparent 18rem),
