@@ -154,6 +154,20 @@ input:focus, select:focus {
     radial-gradient(circle at top right, rgba(255,213,110,.13), transparent 18rem),
     linear-gradient(145deg, rgba(39,47,65,.98), rgba(12,15,23,.99));
 }
+.recommendation-title {
+  color: #f2c94c;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.recommendation-main {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #f5f5f5;
+}
+.recommendation-stat {
+  color: #d4af37;
+  font-weight: 700;
+}
 .rec-topline {
   display: flex;
   justify-content: space-between;
