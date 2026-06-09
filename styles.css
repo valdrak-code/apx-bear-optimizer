@@ -272,6 +272,25 @@ footer { text-align: center; color: var(--muted); padding: 16px 0 22px; }
   gap: 1rem;
 }
 
+.hero-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.hero-header div {
+    display: flex;
+    flex-direction: column;
+}
+
+@media (max-width: 768px) {
+    .hero-header {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
 @media (min-width: 720px) {
   .app-shell { padding: 28px; }
   .grid.two { grid-template-columns: repeat(2, 1fr); }
