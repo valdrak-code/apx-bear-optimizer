@@ -245,6 +245,18 @@ input:focus, select:focus {
 .planner { display: grid; gap: 10px; }
 footer { text-align: center; color: var(--muted); padding: 16px 0 22px; }
 
+.logo {
+  width: 120px;
+  max-width: 35vw;
+  height: auto;
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .logo {
+    width: 160px;
+  }
+}
 @media (max-width: 390px) {
   .app-shell { padding-left: 10px; padding-right: 10px; }
   .card { padding: 15px; border-radius: 19px; }
@@ -252,6 +264,12 @@ footer { text-align: center; color: var(--muted); padding: 16px 0 22px; }
   .logo-mark { width: 58px; height: 58px; border-radius: 17px; }
   .stat-grid { gap: 8px; }
   .stat { padding: 11px 10px; }
+}
+
+.hero-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 @media (min-width: 720px) {
