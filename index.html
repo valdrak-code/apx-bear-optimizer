@@ -72,10 +72,16 @@
           <label>Rally Leader March Size
             <input id="leaderSize" type="text" inputmode="numeric" pattern="[0-9,]*" value="100000" />
           </label>
-          <label class="check-row leader-priority-toggle">
-            <input id="includeLeader" type="checkbox" />
-            Prioritize Rally Leader Formation
-          </label>
+          <div class="leader-priority-panel">
+            <label class="switch-row" for="includeLeader">
+              <input id="includeLeader" type="checkbox" />
+              <span class="switch-box" aria-hidden="true"></span>
+              <span class="switch-copy">
+                <strong>Prioritize Rally Leader Formation</strong>
+                <span>Turn this on when your Rally Leader Formation should be the optimizer's priority.</span>
+              </span>
+            </label>
+          </div>
         </div>
         <p class="note">Leave this off to optimize joiners first while still showing a Rally Leader Formation reference.</p>
       </div>
