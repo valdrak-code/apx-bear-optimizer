@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0D0D0D" />
-  <title>APX Tools | Bear Hunt Optimizer v2.2.0</title>
+  <title>APX Tools | Bear Hunt Optimizer v2.3.5 Beta</title>
   <link rel="icon" type="image/x-icon" href="favicon.ico" />
-  <link rel="stylesheet" href="styles.min.css?v=2.2.0" />
+  <link rel="stylesheet" href="styles.min.css?v=2.3.5-beta" />
 </head>
 <body>
   <main class="app-shell">
@@ -16,12 +16,12 @@
         <p class="eyebrow">APX Tools</p>
         <h1>Bear Hunt Rally Optimizer</h1>
         <p>Maximize damage. Minimize waste. Explain why.</p>
-        <span class="version-pill">v2.2.0</span>
+        <span class="version-pill">v2.3.5 Beta</span>
       </div>
     </header>
 
     <nav class="site-nav" aria-label="APX Tools Navigation">
-      <a href="index.html" class="active">🐻 Bear Hunt</a>
+      <a href="index.html" class="active" aria-current="page">🐻 Bear Hunt</a>
       <a href="guide.html">📖 Guide</a>
       <a href="about.html">ℹ️ About</a>
       <a href="changelog.html">📋 Changelog</a>
@@ -67,23 +67,17 @@
           </select>
         </label>
       </div>
-      <label class="check-row">
-        <input id="includeLeader" type="checkbox" />
-        Check if you are a Rally Leader
-      </label>
-      <div id="leaderSettings" class="leader-settings">
+      <div id="leaderSettings" class="leader-settings always-visible">
         <div class="grid two">
           <label>Rally Leader March Size
             <input id="leaderSize" type="text" inputmode="numeric" pattern="[0-9,]*" value="100000" />
           </label>
-          <label>Optimization Strategy
-            <select id="strategy">
-              <option value="joiners">Prioritize Joiners</option>
-              <option value="leader">Prioritize Rally Leader</option>
-              <option value="balanced">Balanced</option>
-            </select>
+          <label class="check-row leader-priority-toggle">
+            <input id="includeLeader" type="checkbox" />
+            Prioritize Rally Leader Formation
           </label>
         </div>
+        <p class="note">Leave this off to optimize joiners first while still showing a Rally Leader Formation reference.</p>
       </div>
       <button id="resetButton" class="secondary-button" type="button">↺ Reset to Defaults</button>
     </section>
@@ -94,7 +88,7 @@
           <div class="card-kicker">🏆 APX Recommended Setup</div>
           <p class="hero-subtitle">Your strongest Bear Hunt setup based on the current optimizer engine.</p>
         </div>
-        <span class="engine-chip">Engine v2.2.0</span>
+        <span class="engine-chip">Engine v2.3.5</span>
       </div>
 
       <div class="quality-hero">
@@ -136,9 +130,9 @@
       <section id="leaderBreakdownCard" class="card formation-card">
         <h2>👑 Rally Leader Formation</h2>
         <div class="formation-grid">
-          <div class="troop-card troop-archer"><span class="troop-icon">🏹</span><strong id="leaderArchers">—</strong><span>Archers</span></div>
-          <div class="troop-card troop-cavalry"><span class="troop-icon">🐎</span><strong id="leaderCavalry">—</strong><span>Cavalry</span></div>
-          <div class="troop-card troop-infantry"><span class="troop-icon">🛡️</span><strong id="leaderInfantry">—</strong><span>Infantry</span></div>
+          <div class="troop-card troop-archer"><span class="troop-icon">🏹</span><strong id="leaderArchers">—</strong><small id="leaderArchersPct" class="troop-percent">—</small><span>Archers</span></div>
+          <div class="troop-card troop-cavalry"><span class="troop-icon">🐎</span><strong id="leaderCavalry">—</strong><small id="leaderCavalryPct" class="troop-percent">—</small><span>Cavalry</span></div>
+          <div class="troop-card troop-infantry"><span class="troop-icon">🛡️</span><strong id="leaderInfantry">—</strong><small id="leaderInfantryPct" class="troop-percent">—</small><span>Infantry</span></div>
         </div>
         <div class="breakdown-list compact-breakdown">
           <div><span>Leader Total</span><strong id="leaderTotal">—</strong></div>
@@ -166,9 +160,9 @@
       <section id="maxLeaderBreakdownCard" class="card alt-card formation-card">
         <h2>👑 Maximum Marches Rally Leader Formation</h2>
         <div class="formation-grid">
-          <div class="troop-card troop-archer"><span class="troop-icon">🏹</span><strong id="maxLeaderArchers">—</strong><span>Archers</span></div>
-          <div class="troop-card troop-cavalry"><span class="troop-icon">🐎</span><strong id="maxLeaderCavalry">—</strong><span>Cavalry</span></div>
-          <div class="troop-card troop-infantry"><span class="troop-icon">🛡️</span><strong id="maxLeaderInfantry">—</strong><span>Infantry</span></div>
+          <div class="troop-card troop-archer"><span class="troop-icon">🏹</span><strong id="maxLeaderArchers">—</strong><small id="maxLeaderArchersPct" class="troop-percent">—</small><span>Archers</span></div>
+          <div class="troop-card troop-cavalry"><span class="troop-icon">🐎</span><strong id="maxLeaderCavalry">—</strong><small id="maxLeaderCavalryPct" class="troop-percent">—</small><span>Cavalry</span></div>
+          <div class="troop-card troop-infantry"><span class="troop-icon">🛡️</span><strong id="maxLeaderInfantry">—</strong><small id="maxLeaderInfantryPct" class="troop-percent">—</small><span>Infantry</span></div>
         </div>
         <div class="breakdown-list compact-breakdown">
           <div><span>Leader Total</span><strong id="maxLeaderTotal">—</strong></div>
@@ -194,14 +188,14 @@
 
     <footer class="site-footer">
       <p>Created by Valdrak</p>
-      <p>APX Bear Hunt Optimizer · v2.2.0 · Engine v2.2.0</p>
+      <p>APX Bear Hunt Optimizer · v2.3.5 Beta · Engine v2.3.5</p>
       <p>Powered by the APX Optimization Engine</p>
-      <p>Build Date: 2026-06-17</p>
+      <p>Build Date: 2026-07-06</p>
       <p><strong>Maximize Damage. Minimize Waste. Explain Why.</strong></p>
       <p>© 2026 APX Tools</p>
       <p>For educational and entertainment purposes only. Not affiliated with KingShot.</p>
     </footer>
   </main>
-  <script src="app.min.js?v=2.2.0"></script>
+  <script src="app.min.js?v=2.3.5-beta"></script>
 </body>
 </html>

@@ -2,6 +2,6 @@
 
 Upload/replace all files from this package into the GitHub repository connected to Cloudflare Pages. Commit with:
 
-`Release v2.2.0`
+`Update v2.3.0 Dev Dev`
 
 Cloudflare Pages should deploy automatically.

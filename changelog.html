@@ -7,7 +7,7 @@
   <title>APX Tools | Changelog</title>
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="shortcut icon" href="/favicon.ico" />
-  <link rel="stylesheet" href="styles.min.css?v=2.2.0" />
+  <link rel="stylesheet" href="styles.min.css?v=2.3.5-beta" />
 </head>
 <body>
   <main class="app-shell guide-shell">
@@ -17,45 +17,66 @@
         <p class="eyebrow">APX Tools</p>
         <h1>Changelog</h1>
         <p>Track major updates, testing milestones, and release notes.</p>
-        <span class="version-pill">v2.2.0</span>
+        <span class="version-pill">v2.3.5 Beta</span>
       </div>
     </header>
+
     <nav class="site-nav" aria-label="APX Tools Navigation">
       <a href="index.html">🐻 Bear Hunt</a>
       <a href="guide.html">📖 Guide</a>
       <a href="about.html">ℹ️ About</a>
-      <a href="changelog.html" class="active">📋 Changelog</a>
+      <a href="changelog.html" class="active" aria-current="page">📋 Changelog</a>
     </nav>
-
 
     <section class="card guide-hero-card">
       <div class="card-kicker">📋 Release Notes</div>
-      <h2>Current Release Candidate</h2>
+      <h2>Current Beta Release</h2>
       <p>This changelog tracks meaningful APX Tools updates. Minor behind-the-scenes edits may not always be listed individually.</p>
     </section>
 
     <section class="guide-grid">
       <article class="card guide-card full-width changelog-entry">
-        <h2>v2.2.0 — Official Release</h2>
-        <p><strong>Status:</strong> Official Release</p>
+        <h2>v2.3.5 Beta — Adaptive Optimization Beta</h2>
+        <p><strong>Status:</strong> Beta testing</p>
         <ul>
-          <li>Added Archer scaling beyond 70% for high-Archer joiner formations.</li>
-          <li>Added automatic advanced Rally Leader milestone detection: 1 Infantry / roughly 10% Cavalry / roughly 90% Archers.</li>
-          <li>Advanced Rally Leader logic only activates when joiners remain at 70%+ Archers.</li>
-          <li>Fixed APX Coach so it no longer suggests reducing marches simply to chase 100% Archer joiners.</li>
-          <li>Promoted APX Tools from Release Candidate to official v2.2.0 release.</li>
+          <li>Removed the Balanced strategy after testing showed players are effectively optimizing as either joiners or Rally Leaders.</li>
+          <li>Removed the strategy dropdown and replaced it with one clearer toggle: <strong>Prioritize Rally Leader Formation</strong>.</li>
+          <li>Rally Leader March Size is now always visible and always used to show a Rally Leader Formation reference.</li>
+          <li>Joiner-first mode now optimizes joiner Formations while still showing a Rally Leader Formation reference.</li>
+          <li>Rally Leader priority mode now prioritizes the Rally Leader Formation while keeping joiners viable.</li>
+          <li>Restored polished pill-style navigation across pages.</li>
+          <li>Fixed Rally Leader priority toggle layout and removed the awkward gold hover box around the checkbox area.</li>
+          <li>Updated Guide, About, Changelog, README, Roadmap, and Optimizer Rules for the v2.3 beta direction.</li>
         </ul>
-        <p><strong>Status:</strong> Internal APX testing / release candidate.</p>
+      </article>
+
+      <article class="card guide-card full-width changelog-entry">
+        <h2>v2.3.0–v2.3.4 Dev Series</h2>
+        <p><strong>Status:</strong> Development testing</p>
         <ul>
-          <li>Polished mobile-first dashboard experience.</li>
-          <li>Added APX Recommended Setup hero card.</li>
-          <li>Added Formation cards with troop identity colors.</li>
+          <li>Added Formation Integrity rules including a minimum Infantry presence and Cavalry floor targets.</li>
+          <li>Added Archer scaling beyond 70% for high-Archer joiner Formations.</li>
+          <li>Added automatic advanced Rally Leader milestone detection: 1 Infantry, roughly 10% Cavalry, and roughly 90% Archers.</li>
+          <li>Protected joiner Formations so advanced Rally Leader progression only activates when joiners remain 70%+ Archers.</li>
+          <li>Added exact count plus percentage display for Rally Leader Formation cards.</li>
+          <li>Improved advanced Archer sharing between joiners and Rally Leader Formation.</li>
+          <li>Fixed high-Archer candidate rejection caused by tiny rounding leftovers.</li>
+          <li>Improved advanced-mode Cavalry backfill so joiners continue pushing toward the Alliance Rally Cap Limit when viable.</li>
+          <li>Fixed APX Coach so it no longer recommends reducing marches just to chase 100% Archer joiners.</li>
+          <li>Added configurable APX / Kingdom 1886 language foundation for future expansion.</li>
+          <li>Added OPTIMIZER_RULES.md and ROADMAP.md for future development tracking.</li>
+        </ul>
+      </article>
+
+      <article class="card guide-card full-width changelog-entry">
+        <h2>v2.2.0 — Official Release</h2>
+        <p><strong>Status:</strong> Official release</p>
+        <ul>
+          <li>Promoted APX Tools from Release Candidate to official release.</li>
+          <li>Added Guide, About, and Changelog pages.</li>
           <li>Added Copy Recommendation for Discord sharing.</li>
-          <li>Added APX Coach and APX Insight sections.</li>
-          <li>Added Optimization Report to explain recommendations.</li>
-          <li>Added Guide page, About page, and Changelog page.</li>
-          <li>Improved status language and mobile usability.</li>
-          <li>Production package prepared for Cloudflare Pages.</li>
+          <li>Finalized APX Coach, APX Insight, Optimization Report, and Formation cards.</li>
+          <li>Prepared production package for Cloudflare Pages deployment.</li>
         </ul>
       </article>
 
@@ -71,12 +92,11 @@
       </article>
 
       <article class="card guide-card full-width changelog-entry">
-        <h2>v2.0 Dev Series</h2>
+        <h2>v2.0 Development Series</h2>
         <ul>
           <li>Introduced rewritten candidate-based optimizer engine.</li>
           <li>Added Infantry soft cap logic.</li>
           <li>Added Cavalry filler logic.</li>
-          <li>Added Balanced optimization strategy.</li>
           <li>Added APX Recommended Setup and Maximum Marches Setup.</li>
           <li>Improved Rally Leader priority handling.</li>
           <li>Expanded Alliance Rally Cap Limit options through 90,000.</li>
@@ -96,7 +116,7 @@
 
     <footer class="site-footer">
       <p><strong>APX Tools</strong></p>
-      <p>Bear Hunt Optimizer · v2.2.0</p>
+      <p>Bear Hunt Optimizer · v2.3.5 Beta</p>
       <p>Created by Valdrak</p>
       <p>Powered by the APX Optimization Engine</p>
       <p><strong>Maximize Damage. Minimize Waste. Explain Why.</strong></p>

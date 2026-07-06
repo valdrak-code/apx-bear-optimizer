@@ -7,7 +7,7 @@
   <title>APX Tools | Bear Hunt Guide</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="shortcut icon" href="/favicon.ico" />
-  <link rel="stylesheet" href="styles.min.css?v=2.2.0" />
+  <link rel="stylesheet" href="styles.min.css?v=2.3.5-beta" />
 </head>
 <body>
   <main class="app-shell guide-shell">
@@ -24,7 +24,7 @@
 
     <nav class="site-nav" aria-label="APX Tools Navigation">
       <a href="index.html">🐻 Bear Hunt</a>
-      <a href="guide.html" class="active">📖 Guide</a>
+      <a href="guide.html" class="active" aria-current="page">📖 Guide</a>
       <a href="about.html">ℹ️ About</a>
       <a href="changelog.html">📋 Changelog</a>
     </nav>
@@ -53,26 +53,22 @@
         <ul>
           <li><strong>Maximum Marches</strong> — the most joiner marches your account can send.</li>
           <li><strong>Alliance Rally Cap Limit</strong> — the max troops APX allows per joiner rally.</li>
-          <li><strong>Check if you are a Rally Leader</strong> — turn this on if you will launch your own rally.</li>
-          <li><strong>Rally Leader March Size</strong> — your maximum march size when launching a rally.</li>
+          <li><strong>Rally Leader March Size</strong> — your maximum march size when launching a rally. This is always used to show a recommended Rally Leader Formation reference.</li>
+          <li><strong>Prioritize Rally Leader Formation</strong> — turn this on when your Rally Leader march should be the priority. Leave it off to optimize joiner Formations first while still showing a Rally Leader Formation reference.</li>
           <li><strong>Advanced Rally Leader detection</strong> — when your account can support it, APX Tools can automatically detect the long-term milestone of 1 Infantry, roughly 10% Cavalry, and roughly 90% Archers. This only activates when joiner Formations can remain at 70%+ Archers.</li>
         </ul>
       </article>
 
       <article class="card guide-card full-width">
-        <h2>3. Choose Your Optimization Strategy</h2>
+        <h2>3. Choose Whether Rally Leader Is the Priority</h2>
         <div class="guide-callouts">
           <div class="guide-callout">
-            <h3>⚔️ Prioritize Joiners</h3>
-            <p>Best for most players. The optimizer focuses on your joiner marches first, then uses remaining troops for Rally Leader if enabled.</p>
+            <h3>⚔️ Default: Joiner First</h3>
+            <p>Best for most players. APX Tools optimizes your joiner Formations first and still displays a recommended Rally Leader Formation for reference.</p>
           </div>
           <div class="guide-callout">
-            <h3>👑 Prioritize Rally Leader</h3>
-            <p>Best when launching your own rally is the priority. The optimizer reserves the Rally Leader Formation first, then builds joiners from what remains.</p>
-          </div>
-          <div class="guide-callout">
-            <h3>⚖️ Balanced</h3>
-            <p>Attempts to avoid sacrificing either side too heavily. This is useful when you want a solid Rally Leader Formation and useful joiner output.</p>
+            <h3>👑 Prioritize Rally Leader Formation</h3>
+            <p>Use this when your Rally Leader march should be protected first. APX Tools improves the Rally Leader Formation while keeping joiner Formations viable.</p>
           </div>
         </div>
       </article>
@@ -93,12 +89,12 @@
     <section class="card guide-card full-width">
       <h2>Understanding Your Results</h2>
       <div class="guide-result-list">
-        <div><strong>🏆 APX Recommended Setup</strong><span>The optimizer's best overall recommendation.</span></div>
+        <div><strong>🏆 APX Recommended Setup</strong><span>The optimizer's best overall recommendation based on whether Rally Leader priority is enabled.</span></div>
         <div><strong>📋 Optimization Report</strong><span>Explains why the recommendation was selected.</span></div>
         <div><strong>💡 APX Coach</strong><span>Gives practical advice for improving future recommendations.</span></div>
         <div><strong>🔍 APX Insight</strong><span>Shows a useful observation about your current setup.</span></div>
         <div><strong>⚔️ Joiner Formation</strong><span>Shows what each joiner march should use.</span></div>
-        <div><strong>👑 Rally Leader Formation</strong><span>Shows the recommended Rally Leader troop split when enabled.</span></div>
+        <div><strong>👑 Rally Leader Formation</strong><span>Always shows a recommended Rally Leader troop split based on your Rally Leader March Size.</span></div>
         <div><strong>⚔️ Maximum Marches Setup</strong><span>Shows what happens if you insist on using your selected maximum march count.</span></div>
       </div>
     </section>
@@ -123,7 +119,7 @@
       </details>
       <details>
         <summary>Can joiner Formations go above 70% Archers?</summary>
-        <p>Yes. In v2.2.0, 70% is treated as a strong viability target, not a ceiling. If you have enough Archers, the optimizer can push joiner Formations higher while still keeping the setup practical.</p>
+        <p>Yes. In v2.3.5 Beta, 70% is treated as a strong viability target, not a ceiling. If you have enough Archers, the optimizer can push joiner Formations higher while still keeping the setup practical.</p>
       </details>
       <details>
         <summary>Why does APX Coach stop at 90% Archers?</summary>
@@ -131,7 +127,7 @@
       </details>
       <details>
         <summary>Why are my results different from another player?</summary>
-        <p>Recommendations are based on your troop counts, max marches, Rally Leader setting, Rally Leader size, alliance cap, and selected strategy.</p>
+        <p>Recommendations are based on your troop counts, maximum marches, Rally Leader March Size, Alliance Rally Cap Limit, and whether Rally Leader priority is enabled.</p>
       </details>
     </section>
 
@@ -143,7 +139,7 @@
 
     <footer class="site-footer">
       <p>Created by Valdrak</p>
-      <p>APX Bear Hunt Guide · v1.0 · Optimizer UI v2.2.0 · Engine v2.2.0</p>
+      <p>APX Bear Hunt Guide · v1.0 · Optimizer UI v2.3.5 Beta · Engine v2.3.5 Beta</p>
       <p>Powered by the APX Optimization Engine</p>
       <p><strong>Maximize Damage. Minimize Waste. Explain Why.</strong></p>
       <p>© 2026 APX Tools</p>
