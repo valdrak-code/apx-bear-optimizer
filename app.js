@@ -1,9 +1,11 @@
-/* APX Tools Bear Hunt Optimizer v2.3.5 Beta Source
+/* APX Tools Bear Hunt Optimizer v2.4.7 RC1 Source
    Created by Valdrak. Production build is app.min.js. */
 
-const VERSION = '2.3.5 Beta';
-const ENGINE_VERSION = '2.3.5';
-const BUILD_DATE = '2026-07-06';
+const VERSION = '2.4.7 RC1';
+const ENGINE_VERSION = '2.4.7';
+const BUILD_DATE = '2026-07-09';
+const ENGINE_NAME = 'Adaptive Formation Engine';
+const ENGINE_MODEL = 'Unified Candidate Pool + Flexible Leader Targets';
 const APP_CONFIG = {
   productName: 'APX Tools',
   toolName: 'Bear Hunt Optimizer',
@@ -22,7 +24,8 @@ const DEFAULTS = {
   leaderSize: 100000,
 };
 let DEVELOPER_MODE = new URLSearchParams(window.location.search).get('dev') === '1' || localStorage.getItem('apxDeveloperMode') === 'true';
-const STEP = 10; // v2.3: finer troop rounding to maximize Archer usage without ugly numbers.
+const STEP = 1; // v2.4.3: exact troop allocation; formatting handles readability.
+const MARCH_SIZE_STEP = 50; // Candidate sizes scan in practical increments; troop allocation itself remains exact.
 const MIN_MARCHES = 3;
 const MAX_MARCHES = 6;
 const DEFAULT_FLOOR = 32000;
@@ -30,32 +33,40 @@ const INFANTRY_SOFT_CAP = 0.10;
 const MIN_INFANTRY_PER_FORMATION = 1;
 const CAVALRY_FLOOR = 0.10;
 const ARCHER_IDEAL = 0.70;
+const JOINER_FLEX_TARGETS = [0.70, 0.65, 0.60, 0.55, 0.50]; // v2.3.13: evaluate lower Archer ratios when they preserve Leader/reference viability and fill cap.
 const JOINER_ARCHER_ELITE_CEILING = 0.90;
 const JOINER_ARCHER_COACH_CEILING = 0.90;
 const ARCHER_EXCELLENT = 0.68;
 const ARCHER_OPTIMAL = 0.50;
 const LEADER_ARCHER_IDEAL = 0.80;
+const LEADER_FLEX_TARGETS = [0.80, 0.75, 0.70, 0.65, 0.60, 0.55, 0.50];
 const LEADER_ARCHER_ADVANCED = 0.90;
 const LEADER_INF_TARGET = 0.10;
 const LEADER_CAV_TARGET = 0.10;
 const JOINER_SHARED_ARCHER_THRESHOLD = 0.80;
+const LEADER_ADVANCED_MIN_FILL = 0.70; // Advanced Leader mode requires a meaningful Leader size.
+const LEADER_REFERENCE_MIN_ARCHER = 0.45; // Joiner-priority advanced joiners must still leave a usable Leader reference.
+const LEADER_REFERENCE_MIN_FILL = 0.70;
+const UNDERFILLED_CAP_PENALTY_THRESHOLD = 0.95;
 
 const STRATEGY_WEIGHTS = {
   joiners: {
     totalOutput: 38,
-    archerRatio: 22,
-    infantryDiscipline: 12,
-    capUse: 12,
-    leaderQuality: 8,
-    joinerCount: 8,
+    archerRatio: 16,
+    infantryDiscipline: 9,
+    capUse: 19,
+    leaderQuality: 14,
+    joinerCount: 4,
   },
   leader: {
-    totalOutput: 30,
-    archerRatio: 12,
-    infantryDiscipline: 12,
-    capUse: 15,
-    leaderQuality: 25,
-    joinerCount: 6,
+    // v2.4.3 AFE: Rally Leader Priority changes scoring weights only.
+    // It strongly values Leader quality while still protecting viable joiner output.
+    totalOutput: 26,
+    archerRatio: 10,
+    infantryDiscipline: 8,
+    capUse: 12,
+    leaderQuality: 40,
+    joinerCount: 4,
   },
 };
 
@@ -206,7 +217,7 @@ function troopTotal(troops) {
 function buildLeaderMarch(leaderSize, available, options = {}) {
   const requestedSize = floorStep(leaderSize);
   if (requestedSize <= 0) {
-    return { infantry: 0, cavalry: 0, archers: 0, total: 0, ratio: 0, fillRatio: 0, status: 'Not configured', mode: 'standard', targetArcherRatio: LEADER_ARCHER_IDEAL };
+    return { infantry: 0, cavalry: 0, archers: 0, total: 0, ratio: 0, fillRatio: 0, status: 'Not configured', mode: 'standard', targetArcherRatio: leaderArcherTarget };
   }
 
   const advanced = options.advanced === true;
@@ -255,9 +266,10 @@ function buildLeaderMarch(leaderSize, available, options = {}) {
     return { infantry, cavalry, archers, total, ratio, fillRatio, requestedSize, targetSize, status, cavalrySubstituted, infantrySubstituted, mode: 'advanced', targetArcherRatio: LEADER_ARCHER_ADVANCED };
   }
 
+  const leaderArcherTarget = clamp(Number(options.archerTarget || LEADER_ARCHER_IDEAL), 0.20, LEADER_ARCHER_IDEAL);
   const infTarget = floorStep(targetSize * LEADER_INF_TARGET);
   const cavTarget = floorStep(targetSize * LEADER_CAV_TARGET);
-  const archTarget = floorStep(targetSize * LEADER_ARCHER_IDEAL);
+  const archTarget = floorStep(targetSize * leaderArcherTarget);
 
   infantry = Math.min(floorStep(available.infantry), infTarget);
   cavalry = Math.min(floorStep(available.cavalry), cavTarget);
@@ -265,20 +277,46 @@ function buildLeaderMarch(leaderSize, available, options = {}) {
 
   let gap = targetSize - infantry - cavalry - archers;
 
-  // If Archers cannot reach 80%, Cavalry is the preferred substitute.
+  // v2.3.18: 10/10/80 is an ideal target, not a hard shrink rule.
+  // If Archers cannot reach 80%, Cavalry may safely backfill toward the
+  // requested Leader target as long as Cavalry does not overtake Archers.
   if (gap > 0) {
-    const addCav = Math.min(floorStep(gap), Math.max(0, floorStep(available.cavalry - cavalry)));
+    const addCav = Math.min(
+      floorStep(gap),
+      Math.max(0, floorStep(available.cavalry - cavalry)),
+      Math.max(0, archers - cavalry)
+    );
     if (addCav > 0) cavalrySubstituted = true;
     cavalry += addCav;
     gap -= addCav;
   }
 
-  // Infantry substitution is allowed only as a final fill option.
+  // Infantry substitution is allowed only after safe Cavalry backfill. This
+  // keeps the Leader more viable without forcing a tiny perfect-ratio march.
   if (gap > 0) {
-    const addInf = Math.min(floorStep(gap), Math.max(0, floorStep(available.infantry - infantry)));
+    const addInf = Math.min(
+      floorStep(gap),
+      Math.max(0, floorStep(available.infantry - infantry)),
+      Math.max(0, Math.max(archers, cavalry) - infantry)
+    );
     if (addInf > 0) infantrySubstituted = true;
     infantry += addInf;
     gap -= addInf;
+  }
+
+  // If safe fill still left a small remainder, allow exact Cavalry then
+  // Infantry fill inside the same guardrails.
+  if (gap > 0 && gap < STEP) {
+    const addCavExact = Math.min(gap, Math.max(0, available.cavalry - cavalry), Math.max(0, archers - cavalry));
+    if (addCavExact > 0) cavalrySubstituted = true;
+    cavalry += addCavExact;
+    gap -= addCavExact;
+  }
+  if (gap > 0 && gap < STEP) {
+    const addInfExact = Math.min(gap, Math.max(0, available.infantry - infantry), Math.max(0, Math.max(archers, cavalry) - infantry));
+    if (addInfExact > 0) infantrySubstituted = true;
+    infantry += addInfExact;
+    gap -= addInfExact;
   }
 
   const tinyArcherThreshold = Math.max(500, Math.floor(targetSize * 0.005));
@@ -308,28 +346,64 @@ function buildLeaderMarch(leaderSize, available, options = {}) {
     status = 'Archer-light, Infantry substituted';
   }
 
-  return { infantry, cavalry, archers, total, ratio, fillRatio, requestedSize, targetSize, status, cavalrySubstituted, infantrySubstituted, mode: 'standard', targetArcherRatio: LEADER_ARCHER_IDEAL };
+  return { infantry, cavalry, archers, total, ratio, fillRatio, requestedSize, targetSize, status, cavalrySubstituted, infantrySubstituted, mode: 'standard', targetArcherRatio: leaderArcherTarget };
 }
 
-function buildBestLeaderMarch(leaderSize, available, joinerRatio = 0) {
-  const standard = buildLeaderMarch(leaderSize, available, { advanced: false });
-  const advanced = buildLeaderMarch(leaderSize, available, { advanced: true });
+function buildBestLeaderMarch(leaderSize, available, joinerRatio = 0, joinerCapUse = 0) {
+  // v2.3.10: Rally Leader reference uses the target size as an ideal, not a hard display size.
+  // When joiners are optimized first, test smaller practical Leader targets so the reference
+  // does not become a full-size Cavalry/Infantry dump just because the entered target was larger.
+  const requestedLeader = floorStep(leaderSize);
+  const fractions = [1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5];
+  const targets = [...new Set(fractions.map(f => floorStep(requestedLeader * f)).filter(v => v > 0))];
+  if (requestedLeader > DEFAULT_FLOOR) targets.push(DEFAULT_FLOOR);
 
-  // v2.3.2: Once joiners are strong enough, start sharing Archer growth with
-  // the Rally Leader instead of continuing to feed all excess Archers into joiners.
-  // Advanced Leader may only activate if joiners remain viable at 70%+ Archers.
   const joinersAreProtected = joinerRatio >= ARCHER_IDEAL;
   const joinersAreMature = joinerRatio >= JOINER_SHARED_ARCHER_THRESHOLD;
-  const advancedIsUsable = advanced.total > 0 && advanced.fillRatio >= 0.95 && advanced.ratio >= LEADER_ARCHER_IDEAL;
-  const advancedImprovesLeader = advanced.ratio > (standard.ratio || 0) + 0.02 || advanced.archers > (standard.archers || 0);
+  const joinersAreNearCap = joinerCapUse >= 0.95;
 
-  if (joinersAreProtected && joinersAreMature && advancedIsUsable && advancedImprovesLeader) {
-    return advanced;
+  let best = null;
+  let bestScore = -Infinity;
+
+  for (const target of targets) {
+    const options = [
+      ...LEADER_FLEX_TARGETS.map(archerTarget => buildLeaderMarch(leaderSize, available, { advanced: false, maxLeaderSize: target, archerTarget })),
+      buildLeaderMarch(leaderSize, available, { advanced: true, maxLeaderSize: target })
+    ];
+
+    for (const leader of options) {
+      if (!leader || leader.total <= 0) continue;
+
+      // Advanced Leader only inherits true surplus after joiners are mature and near cap.
+      if (leader.mode === 'advanced') {
+        const advancedIsUsable = leader.fillRatio >= LEADER_ADVANCED_MIN_FILL && leader.ratio >= LEADER_ARCHER_IDEAL;
+        if (!(joinersAreProtected && joinersAreMature && joinersAreNearCap && advancedIsUsable)) continue;
+      }
+
+      // v2.3.18: Leader reference scoring now favors practical viability.
+      // A fuller Leader Formation with safe Cavalry backfill should beat a tiny
+      // perfect-ratio Leader when it creates a stronger usable rally option.
+      const ratioScore = clamp(leader.ratio / LEADER_ARCHER_IDEAL, 0, 1);
+      const fillScore = clamp(leader.fillRatio, 0, 1);
+      const sizeScore = requestedLeader ? clamp(leader.total / requestedLeader, 0, 1) : 0;
+      let score = fillScore * 45 + sizeScore * 40 + ratioScore * 15;
+
+      if (leader.ratio >= LEADER_REFERENCE_MIN_ARCHER) score += 5;
+      if (leader.ratio < 0.20) score -= 45;
+      if (leader.total < DEFAULT_FLOOR) score -= 10;
+      if (leader.mode === 'advanced') score += 3;
+
+      if (score > bestScore) {
+        bestScore = score;
+        best = leader;
+      }
+    }
   }
-  return standard;
+
+  return best || buildLeaderMarch(leaderSize, available, { advanced: false });
 }
 
-function buildJoinerComp(size, joiners, available) {
+function buildJoinerComp(size, joiners, available, options = {}) {
   const maxInf = Math.floor(available.infantry / joiners);
   const maxCav = floorStep(available.cavalry / joiners);
   const maxArch = floorStep(available.archers / joiners);
@@ -340,16 +414,30 @@ function buildJoinerComp(size, joiners, available) {
   // - Archers consume as much remaining capacity as possible, up to the practical 90% joiner milestone.
   if (maxInf < MIN_INFANTRY_PER_FORMATION) return null;
 
-  let infantry = MIN_INFANTRY_PER_FORMATION;
   const cavFloor = floorStep(size * CAVALRY_FLOOR);
+
+  // v2.3.6: 1-Infantry joiners are an advanced tactic, not the default.
+  // Use the 1-Infantry approach only when the account can support an
+  // 80%+ Archer joiner formation after keeping Cavalry near 10%.
+  // Otherwise, keep a standard ~10% Infantry floor so smaller accounts do
+  // not appear to be in advanced mode simply because they barely reached 70%.
+  const maxArcherWithAdvancedInf = Math.min(maxArch, Math.max(0, size - MIN_INFANTRY_PER_FORMATION - Math.min(cavFloor, maxCav)));
+  const allowAdvancedJoiner = options.allowAdvanced !== false;
+  const advancedJoinerReady = allowAdvancedJoiner && (maxArcherWithAdvancedInf / size) >= JOINER_SHARED_ARCHER_THRESHOLD;
+  let infantry = advancedJoinerReady ? MIN_INFANTRY_PER_FORMATION : Math.min(floorStep(size * INFANTRY_SOFT_CAP), maxInf);
+  if (infantry < MIN_INFANTRY_PER_FORMATION) infantry = MIN_INFANTRY_PER_FORMATION;
+
   let cavalry = Math.min(cavFloor, maxCav);
   let archers = 0;
 
   let gap = size - infantry - cavalry;
   if (gap < 0) return null;
 
-  // Fill with Archers first, but do not chase beyond the 90% practical joiner ceiling.
-  const archerCeiling = floorStep(size * JOINER_ARCHER_ELITE_CEILING);
+  // v2.3.10: Standard joiners target the 70% viable Archer core, then Cavalry backfills toward cap.
+  // Advanced joiners may climb toward the practical 90% ceiling only when truly supported.
+  const requestedArcherTarget = clamp(Number(options.archerTarget || ARCHER_IDEAL), ARCHER_OPTIMAL, JOINER_ARCHER_ELITE_CEILING);
+  const standardArcherTarget = Math.min(ARCHER_IDEAL, requestedArcherTarget);
+  const archerCeiling = floorStep(size * (advancedJoinerReady ? JOINER_ARCHER_ELITE_CEILING : standardArcherTarget));
   const firstArch = Math.min(gap, maxArch, archerCeiling);
   archers += floorStep(firstArch);
   gap = size - infantry - cavalry - archers;
@@ -424,7 +512,7 @@ function buildJoinerComp(size, joiners, available) {
   if (maxCav >= cavFloor && cavalry < cavFloor) return null;
   if (cavalry > archers) return null;
   if (infantry > archers && infantry > cavalry) return null;
-  const comp = { infantry, cavalry, archers, total, ratio: archers / total, infRatio: infantry / total, cavRatio: cavalry / total };
+  const comp = { infantry, cavalry, archers, total, ratio: archers / total, infRatio: infantry / total, cavRatio: cavalry / total, mode: advancedJoinerReady ? 'advanced' : 'standard' };
   if (!canPay(comp, joiners, available)) return null;
   return comp;
 }
@@ -432,7 +520,7 @@ function candidateMetrics(candidate, input) {
   const capUse = input.cap ? candidate.size / input.cap : 0;
   const archerRatio = candidate.comp.ratio;
   const infDiscipline = 1 - clamp((candidate.comp.infRatio - INFANTRY_SOFT_CAP) / 0.20, 0, 1);
-  const leaderQuality = input.includeLeader ? qualityLeader(candidate.leader) : 1;
+  const leaderQuality = (input.leaderSize > 0 && candidate.leader) ? qualityLeader(candidate.leader) : 1;
   const totalPossibleOutput = input.maxMarches * input.cap;
   const totalOutputScore = totalPossibleOutput ? candidate.totalOutput / totalPossibleOutput : 0;
   const joinerCountScore = input.maxMarches ? candidate.joiners / input.maxMarches : 0;
@@ -452,7 +540,11 @@ function qualityLeader(leader) {
   if (!leader || !leader.requestedSize) return 1;
   const fill = clamp(leader.fillRatio, 0, 1);
   const ratio = clamp(leader.ratio / (leader.targetArcherRatio || LEADER_ARCHER_IDEAL), 0, 1);
-  return fill * 0.55 + ratio * 0.45;
+  const cavalrySafe = leader.cavalry <= leader.archers ? 1 : 0;
+  const usefulArcher = clamp(leader.ratio / LEADER_REFERENCE_MIN_ARCHER, 0, 1);
+  // AFE v2.4.3: Leader quality favors usable/full formations first, then Archer strength.
+  // This prevents tiny perfect-ratio Leaders from beating fuller practical Leaders.
+  return fill * 0.46 + ratio * 0.28 + usefulArcher * 0.18 + cavalrySafe * 0.08;
 }
 
 function scoreCandidate(candidate, input) {
@@ -470,63 +562,182 @@ function scoreCandidate(candidate, input) {
   // preserve an 80%+ joiner Archer ratio. Once joiners remain viable at 70%+,
   // reward the advanced Leader path and let total output/cap usage compete.
   // This keeps joiners closer to the Alliance Rally Cap when Cavalry can fill.
-  if (input.includeLeader && candidate.leader && candidate.leader.mode === 'advanced' && candidate.comp.ratio >= ARCHER_IDEAL) {
+  if (input.includeLeader && candidate.leader && candidate.leader.mode === 'advanced' && candidate.comp.ratio >= JOINER_SHARED_ARCHER_THRESHOLD && candidate.size / input.cap >= 0.95) {
     score += input.strategy === 'leader' ? 8 : 5;
+  }
+
+  // v2.3.12: Archer % is a scoring checkpoint, not a hard stop.
+  // A fuller march with safe Cavalry backfill should be allowed to beat a cleaner
+  // 70% Archer march when the total Bear Hunt contribution is stronger.
+  if (candidate.comp.ratio < ARCHER_OPTIMAL) score -= input.strategy === 'leader' ? 24 : 18;
+  else if (candidate.comp.ratio < 0.60) score -= input.strategy === 'leader' ? 12 : 8;
+  else if (candidate.comp.ratio < 0.65) score -= input.strategy === 'leader' ? 5 : 4;
+  else if (candidate.comp.ratio < ARCHER_IDEAL) score -= input.strategy === 'leader' ? 1.5 : 1;
+
+  // Penalize candidates that leave useful Alliance Rally Cap space unused.
+  // This is intentionally separate from Archer ratio so a clean 70% setup does not
+  // receive an inflated score by leaving safe Cavalry fill unused.
+  const capUseForPenalty = input.cap ? candidate.size / input.cap : 1;
+  if (capUseForPenalty < 0.99) {
+    score -= (0.99 - capUseForPenalty) * 70;
+  }
+
+  // If a Rally Leader Formation is being displayed, prevent the winner from
+  // treating it as garbage leftovers when a slightly smaller joiner setup
+  // would support a meaningful Leader reference.
+  if (candidate.leader && input.leaderSize > 0 && candidate.leader.total > 0) {
+    if (candidate.leader.ratio < 0.20) score -= 18;
+    else if (candidate.leader.ratio < LEADER_REFERENCE_MIN_ARCHER) score -= 8;
+    if (candidate.leader.fillRatio < 0.50) score -= 5;
+    if (input.strategy === 'leader') {
+      const lq = qualityLeader(candidate.leader);
+      // v2.4.3: Leader Priority favors a meaningful, fuller Leader Formation.
+      // Ratio matters, but it should not trap the engine into a tiny 10/10/80 march.
+      score += lq * 28;
+      score += clamp(candidate.leader.fillRatio, 0, 1) * 18;
+      score += clamp(candidate.leader.total / Math.max(1, input.leaderSize), 0, 1) * 18;
+      if (candidate.path === 'leader-first') score += 10;
+      if (candidate.leader.fillRatio >= 0.70) score += 8;
+      if (candidate.leader.fillRatio >= 0.85) score += 6;
+      if (candidate.leader.ratio >= LEADER_REFERENCE_MIN_ARCHER) score += 3;
+      if (candidate.leader.fillRatio < LEADER_ADVANCED_MIN_FILL) score -= 34;
+      if (candidate.leader.ratio < LEADER_REFERENCE_MIN_ARCHER) score -= 20;
+    }
+
+    // v2.3.9: In Joiner Priority, do not let 1/10/90-style advanced joiners
+    // consume Archers so aggressively that the Rally Leader reference becomes
+    // a Cavalry/Infantry dump. Advanced joiners are allowed only when the
+    // Leader reference remains meaningful.
+    if (input.strategy === 'joiners' && candidate.comp.mode === 'advanced') {
+      if (candidate.leader.ratio < LEADER_REFERENCE_MIN_ARCHER) score -= 24;
+      if (candidate.leader.fillRatio < LEADER_REFERENCE_MIN_FILL) score -= 10;
+    }
   }
 
   return Math.round(score * 100) / 100;
 }
 
 function generateCandidates(input, forceJoiners = null) {
+  // v2.4.0 Refactor: candidate construction is unified.
+  // The engine now generates both joiner-first and leader-first candidate paths
+  // whenever a Rally Leader Target Size is provided. The Rally Leader toggle no
+  // longer changes how formations are built; it only changes how candidates are
+  // scored through STRATEGY_WEIGHTS.
   const candidates = [];
   const min = forceJoiners || MIN_MARCHES;
   const max = forceJoiners || input.maxMarches;
+  const requestedLeader = floorStep(input.leaderSize || 0);
+  const leaderFractions = requestedLeader > 0
+    ? [1, 0.95, 0.9, 0.85, 0.8, 0.75, 0.7, 0.65, 0.6, 0.55, 0.5]
+    : [];
+  const leaderTargets = requestedLeader > 0
+    ? [...new Set(leaderFractions.map(f => floorStep(requestedLeader * f)).filter(v => v > 0))]
+    : [];
+  if (requestedLeader > DEFAULT_FLOOR) leaderTargets.push(DEFAULT_FLOOR);
+
+  function pushCandidate(candidate, keySet) {
+    if (!candidate || !candidate.comp || candidate.comp.total <= 0) return;
+    const leaderKey = candidate.leader ? `${candidate.leader.mode}-${candidate.leader.total}-${candidate.leader.infantry}-${candidate.leader.cavalry}-${candidate.leader.archers}` : 'noLeader';
+    const key = `${candidate.path}-${candidate.joiners}-${candidate.size}-${candidate.comp.mode}-${candidate.comp.infantry}-${candidate.comp.cavalry}-${candidate.comp.archers}-${leaderKey}`;
+    if (keySet.has(key)) return;
+    keySet.add(key);
+    candidate.score = scoreCandidate(candidate, input);
+    candidates.push(candidate);
+  }
 
   for (let joiners = min; joiners <= max; joiners++) {
-    for (let size = floorStep(input.cap); size >= STEP; size -= STEP) {
-      if (input.includeLeader && input.strategy === 'leader') {
-        // Leader Priority: test Standard and Advanced Leader reservations.
-        const leaderOptions = [buildLeaderMarch(input.leaderSize, input.troops, { advanced: false }), buildLeaderMarch(input.leaderSize, input.troops, { advanced: true })];
-        for (const leader of leaderOptions) {
-          if (!leader || leader.total <= 0) continue;
-          const availableForJoiners = subtractTroops(input.troops, leader, 1);
-          const comp = buildJoinerComp(size, joiners, availableForJoiners);
-          if (!comp) continue;
-          // Advanced Leader is only allowed if the remaining joiners stay viable at 70%+ Archers.
-          if (leader.mode === 'advanced' && comp.ratio < ARCHER_IDEAL) continue;
-          const candidate = {
-            joiners,
-            size,
-            comp,
-            leader,
-            totalOutput: comp.total * joiners,
-            belowFloor: size < DEFAULT_FLOOR,
-          };
-          candidate.score = scoreCandidate(candidate, input);
-          candidates.push(candidate);
+    for (let size = floorStep(input.cap); size >= STEP; size -= MARCH_SIZE_STEP) {
+      const seen = new Set();
+
+      // Path A: Joiner-first. Build joiners from full troop pool, then build a
+      // practical Rally Leader reference from remaining troops.
+      const joinerOptions = [
+        ...JOINER_FLEX_TARGETS.map(target => buildJoinerComp(size, joiners, input.troops, { allowAdvanced: false, archerTarget: target })),
+        buildJoinerComp(size, joiners, input.troops, { allowAdvanced: true, archerTarget: JOINER_ARCHER_ELITE_CEILING }),
+      ].filter(Boolean);
+
+      const seenJoinerComps = new Set();
+      for (const comp of joinerOptions) {
+        const compKey = `${comp.infantry}-${comp.cavalry}-${comp.archers}`;
+        if (seenJoinerComps.has(compKey)) continue;
+        seenJoinerComps.add(compKey);
+
+        const remaining = subtractTroops(input.troops, comp, joiners);
+        const leader = requestedLeader > 0
+          ? buildBestLeaderMarch(input.leaderSize, remaining, comp.ratio, size / input.cap)
+          : null;
+
+        // Advanced joiners may compete, but not if they completely destroy the
+        // Leader reference. This preserves the v2.3 lesson without making Leader
+        // construction branch-specific.
+        if (comp.mode === 'advanced' && leader && leader.total > 0) {
+          if (leader.ratio < 0.20 && leader.fillRatio < 0.95) continue;
         }
-        continue;
+
+        pushCandidate({
+          path: 'joiner-first',
+          joiners,
+          size,
+          comp,
+          leader,
+          totalOutput: comp.total * joiners,
+          belowFloor: size < DEFAULT_FLOOR,
+        }, seen);
       }
 
-      let availableForJoiners = { ...input.troops };
-      const comp = buildJoinerComp(size, joiners, availableForJoiners);
-      if (!comp) continue;
+      // Path B: Leader-first. Build a Leader Formation first using the same
+      // Leader builder/backfill logic, then build joiners from what remains.
+      // The toggle does not enable/disable this path; it only makes these
+      // candidates score higher when Rally Leader Priority is ON.
+      // v2.4.3: When showing Maximum Marches with Joiner Priority, do not let
+      // the comparison steal from forced joiners just to make a stronger Leader reference.
+      if (requestedLeader > 0 && !(forceJoiners !== null && input.strategy === 'joiners')) {
+        for (const leaderTarget of leaderTargets) {
+          const leaderOptions = [
+            ...LEADER_FLEX_TARGETS.map(archerTarget => buildLeaderMarch(input.leaderSize, input.troops, { advanced: false, maxLeaderSize: leaderTarget, archerTarget })),
+            buildLeaderMarch(input.leaderSize, input.troops, { advanced: true, maxLeaderSize: leaderTarget }),
+          ].filter(Boolean);
 
-      // Joiner Priority: optimize joiners first, then still generate a Rally Leader Formation reference
-      // from remaining troops so players know what to send if they need to call a rally.
-      const remaining = subtractTroops(input.troops, comp, joiners);
-      const leader = buildBestLeaderMarch(input.leaderSize, remaining, comp.ratio);
+          for (const leader of leaderOptions) {
+            if (!leader || leader.total <= 0) continue;
+            const availableForJoiners = subtractTroops(input.troops, leader, 1);
 
-      const candidate = {
-        joiners,
-        size,
-        comp,
-        leader,
-        totalOutput: comp.total * joiners,
-        belowFloor: size < DEFAULT_FLOOR,
-      };
-      candidate.score = scoreCandidate(candidate, input);
-      candidates.push(candidate);
+            const joinerTargets = leader.mode === 'advanced'
+              ? [JOINER_SHARED_ARCHER_THRESHOLD]
+              : JOINER_FLEX_TARGETS;
+
+            const seenLeaderFirstComps = new Set();
+            for (const target of joinerTargets) {
+              const comp = buildJoinerComp(size, joiners, availableForJoiners, {
+                allowAdvanced: leader.mode === 'advanced',
+                archerTarget: target,
+              });
+              if (!comp) continue;
+              const compKey = `${comp.infantry}-${comp.cavalry}-${comp.archers}`;
+              if (seenLeaderFirstComps.has(compKey)) continue;
+              seenLeaderFirstComps.add(compKey);
+
+              // Advanced Leader should inherit surplus from mature/near-cap joiners,
+              // not outrun them. Standard Leader candidates remain available.
+              if (leader.mode === 'advanced') {
+                if (comp.ratio < JOINER_SHARED_ARCHER_THRESHOLD) continue;
+                if ((size / input.cap) < 0.95) continue;
+                if (leader.fillRatio < LEADER_ADVANCED_MIN_FILL) continue;
+              }
+
+              pushCandidate({
+                path: 'leader-first',
+                joiners,
+                size,
+                comp,
+                leader,
+                totalOutput: comp.total * joiners,
+                belowFloor: size < DEFAULT_FLOOR,
+              }, seen);
+            }
+          }
+        }
+      }
     }
   }
   return candidates;
@@ -541,37 +752,119 @@ function bestCandidate(candidates, input) {
   const aboveFloor = candidates.filter(c => !c.belowFloor);
   const pool = aboveFloor.length ? aboveFloor : candidates;
 
-  return pool.reduce((best, cur) => {
+  const scoreWinner = pool.reduce((best, cur) => {
     // If every candidate is below floor, choose the setup closest to the floor first.
     // This prevents 6 tiny marches from beating fewer, more usable marches.
     if (!aboveFloor.length && cur.size !== best.size) return cur.size > best.size ? cur : best;
     if (cur.score !== best.score) return cur.score > best.score ? cur : best;
+    if (input.strategy === 'leader' && cur.leader && best.leader) {
+      const curL = qualityLeader(cur.leader);
+      const bestL = qualityLeader(best.leader);
+      if (Math.abs(curL - bestL) > 0.02) return curL > bestL ? cur : best;
+      if (Math.abs(curL - bestL) <= 0.02 && cur.leader.total !== best.leader.total) return cur.leader.total > best.leader.total ? cur : best;
+    }
     if (cur.totalOutput !== best.totalOutput) return cur.totalOutput > best.totalOutput ? cur : best;
     if (cur.comp.ratio !== best.comp.ratio) return cur.comp.ratio > best.comp.ratio ? cur : best;
     return cur.size > best.size ? cur : best;
   }, pool[0]);
+
+  // v2.3.12: Filled-variant safety pass.
+  // If the score winner is an underfilled 70-ish Archer candidate, allow a fuller
+  // same-joiner candidate to beat it when the Archer drop is modest and the Leader
+  // reference is not meaningfully worse. This prevents APX Recommended from clinging
+  // to a clean ratio while the Maximum Marches path correctly fills toward cap.
+  const winnerLeaderQuality = qualityLeader(scoreWinner.leader);
+  const filledVariant = pool
+    .filter(c =>
+      c.joiners === scoreWinner.joiners &&
+      c.size > scoreWinner.size &&
+      c.comp.ratio >= Math.max(0.58, scoreWinner.comp.ratio - 0.08) &&
+      qualityLeader(c.leader) >= winnerLeaderQuality - 0.08 &&
+      (!scoreWinner.leader || !c.leader || c.leader.ratio >= Math.max(0.20, scoreWinner.leader.ratio - 0.12)) &&
+      c.score >= scoreWinner.score - 6
+    )
+    .sort((a, b) => {
+      if (b.size !== a.size) return b.size - a.size;
+      if (b.score !== a.score) return b.score - a.score;
+      return b.comp.ratio - a.comp.ratio;
+    })[0];
+
+  return filledVariant || scoreWinner;
+}
+
+function cloneCandidate(candidate, extra = {}) {
+  if (!candidate) return null;
+  return {
+    ...candidate,
+    comp: candidate.comp ? { ...candidate.comp } : null,
+    leader: candidate.leader ? { ...candidate.leader } : null,
+    ...extra,
+  };
 }
 
 function analyze(input) {
   const allCandidates = generateCandidates(input);
   const recommended = bestCandidate(allCandidates, input);
   const maxMarchCandidates = generateCandidates(input, input.maxMarches);
-  const maxMarchSetup = bestCandidate(maxMarchCandidates, input);
+  let maxMarchSetup = bestCandidate(maxMarchCandidates, input);
+
+  // v2.4.7: If the APX Recommendation already uses the selected Maximum Marches,
+  // the Maximum Marches comparison must be the same package. Do not rebuild a
+  // separate Leader/Joiner split that can conflict with the recommendation.
+  if (recommended && recommended.joiners === input.maxMarches) {
+    maxMarchSetup = cloneCandidate(recommended, { sameAsRecommendation: true });
+  }
+
   return { recommended, maxMarchSetup, allCandidates };
 }
 
 function gradeFromScore(score) {
-  if (score >= 95) return { grade: 'S+', label: 'Excellent', stars: '★★★★★' };
-  if (score >= 90) return { grade: 'S', label: 'Excellent', stars: '★★★★☆' };
-  if (score >= 80) return { grade: 'A', label: 'Very Good', stars: '★★★★☆' };
-  if (score >= 70) return { grade: 'B', label: 'Good', stars: '★★★☆☆' };
-  if (score >= 60) return { grade: 'C', label: 'Fair', stars: '★★☆☆☆' };
+  if (score >= 96) return { grade: 'S+', label: 'Excellent', stars: '★★★★★' };
+  if (score >= 91) return { grade: 'S', label: 'Excellent', stars: '★★★★☆' };
+  if (score >= 83) return { grade: 'A', label: 'Very Good', stars: '★★★★☆' };
+  if (score >= 73) return { grade: 'B', label: 'Good', stars: '★★★☆☆' };
+  if (score >= 62) return { grade: 'C', label: 'Fair', stars: '★★☆☆☆' };
   return { grade: 'D', label: 'Limited', stars: '★☆☆☆☆' };
 }
 
 
+
+function formationQualityGrade(candidate, input) {
+  if (!candidate) return { grade: 'D', label: 'Limited', stars: '★☆☆☆☆', score: 0 };
+  const ratio = candidate.comp.ratio || 0;
+  const capUse = input && input.cap ? candidate.size / input.cap : 0;
+
+  // v2.4.7 RC1: Visible quality is now a JOINER FORMATION grade.
+  // The hidden optimizer score can still consider Leader quality, but the badge shown to players
+  // should not downgrade elite/full-cap joiners because the Leader reference is weaker.
+  let quality = 0;
+  if (ratio >= 0.90) quality += 60;
+  else if (ratio >= 0.80) quality += 50;
+  else if (ratio >= 0.70) quality += 40;
+  else if (ratio >= 0.60) quality += 30;
+  else if (ratio >= 0.50) quality += 20;
+  else quality += 8;
+
+  if (capUse >= 0.98) quality += 25;
+  else if (capUse >= 0.90) quality += 20;
+  else if (capUse >= 0.80) quality += 14;
+  else if (capUse >= 0.70) quality += 8;
+  else quality += 3;
+
+  if (candidate.comp.cavalry <= candidate.comp.archers) quality += 8;
+  if (candidate.comp.infantry <= (INFANTRY_SOFT_CAP + 0.03)) quality += 7;
+  else if (candidate.comp.infantry <= 0.20) quality += 3;
+
+  quality = Math.min(100, Math.round(quality));
+  if (quality >= 93) return { grade: 'S', label: 'Excellent', stars: '★★★★★', score: quality };
+  if (quality >= 82) return { grade: 'A', label: 'Very Good', stars: '★★★★☆', score: quality };
+  if (quality >= 70) return { grade: 'B', label: 'Good', stars: '★★★☆☆', score: quality };
+  if (quality >= 58) return { grade: 'C', label: 'Fair', stars: '★★☆☆☆', score: quality };
+  return { grade: 'D', label: 'Limited', stars: '★☆☆☆☆', score: quality };
+}
+
 function strategyLabel(value) {
-  if (value === 'leader') return 'Prioritize Rally Leader';
+  if (value === 'leader') return 'Prioritize Rally Leader Formation';
   return 'Prioritize Joiners';
 }
 
@@ -606,6 +899,10 @@ function buildReport(result, input) {
   else if (capUse >= 0.70) report.push({ type: 'warn', text: '⚔️ Joiner Formation is below the Alliance Rally Cap Limit but still usable.' });
   else report.push({ type: 'warn', text: '⚔️ Joiner Formation is significantly below the Alliance Rally Cap Limit.' });
 
+  if (result.comp.ratio < ARCHER_IDEAL && capUse >= 0.95 && result.comp.cavRatio >= CAVALRY_FLOOR) {
+    report.push({ type: 'good', text: '🐎 Cavalry backfilled open space to improve total march output, even though it lowered Archer percentage.' });
+  }
+
   if (result.leader) {
     if (result.leader.mode === 'advanced') report.push({ type: 'good', text: '👑 Advanced Rally Leader milestone detected automatically.' });
     else if (result.leader.fillRatio >= 0.95) report.push({ type: 'good', text: '👑 Rally Leader Formation is strongly supported.' });
@@ -624,7 +921,8 @@ function buildCoach(result, input) {
   if (result.comp.infRatio > INFANTRY_SOFT_CAP + 0.03) return 'Your setup needed extra Infantry. Future training should emphasize Archers and Cavalry for better Bear Hunt efficiency.';
   if (input.includeLeader && input.strategy === 'leader' && result.joiners < input.maxMarches) return 'Rally Leader Priority reduced joiner count to strengthen your Rally Leader Formation while keeping joiners viable.';
   if (result.leader && result.leader.mode === 'advanced') return 'Advanced Rally Leader milestone achieved while preserving 70%+ Archer joiners. Maintain Archer growth to keep this setup viable.';
-  if (result.size < input.cap) return 'Your troop composition is solid. Continue growing all queues while keeping Archers as the main damage troop.';
+  if (result.size < input.cap) return 'Your troop composition is solid, but unused Rally Cap space remains. More Archers and Cavalry will improve future recommendations.';
+  if (result.comp.ratio < ARCHER_IDEAL) return 'Cavalry was used to fill march space for stronger overall output. Continue training Archers to raise future Archer percentage without shrinking march size.';
   return 'Excellent setup. Keep all troop queues running while maintaining Archer-heavy march composition.';
 }
 
@@ -724,7 +1022,9 @@ function renderMaxSetup(setup, recommendation, input) {
   if (els.maxInfantry) els.maxInfantry.textContent = fmt(setup.comp.infantry);
 
   let status = statusRatingText(setup.comp.ratio);
-  if (setup.belowFloor) {
+  if (setup.sameAsRecommendation) {
+    status = 'Same as APX Recommendation.';
+  } else if (setup.belowFloor) {
     status = 'Not Recommended — below the 32,000 preferred floor. Use the APX Recommended Setup.';
   } else {
     if (recommendation && setup.score + 5 < recommendation.score) status += ' — lower quality than APX Recommendation.';
@@ -805,7 +1105,7 @@ function render() {
     return;
   }
 
-  const grade = gradeFromScore(recommended.score);
+  const grade = formationQualityGrade(recommended, input);
   els.qualityStars.textContent = grade.stars;
   els.qualityLabel.textContent = `${grade.grade} Rank · ${grade.label}`;
   els.gradeBadge.textContent = grade.grade;
@@ -813,7 +1113,7 @@ function render() {
   els.recSize.textContent = fmt(recommended.size);
   els.recOutput.textContent = fmt(recommended.totalOutput);
   els.recRatio.textContent = pct(recommended.comp.ratio);
-  els.recSummary.textContent = `${statusRatingText(recommended.comp.ratio)} Formation selected using ${strategyLabel(input.strategy)}. Score: ${recommended.score}/100.`;
+  els.recSummary.textContent = `${statusRatingText(recommended.comp.ratio)} Formation selected using ${strategyLabel(input.strategy)}. Formation Quality: ${grade.score}/100. Optimizer Score: ${recommended.score}/100.`;
 
   els.joinArchers.textContent = fmt(recommended.comp.archers);
   els.joinCavalry.textContent = fmt(recommended.comp.cavalry);
@@ -840,44 +1140,84 @@ function render() {
 }
 
 
+function formatFormationForCopy(title, comp, totalLabel = 'Total') {
+  if (!comp) return [`${title}: N/A`];
+  const total = comp.total || (comp.archers + comp.cavalry + comp.infantry);
+  return [
+    title,
+    `🏹 Archers: ${fmt(comp.archers)}${total ? ` (${formationPct(comp.archers, total)})` : ''}`,
+    `🐎 Cavalry: ${fmt(comp.cavalry)}${total ? ` (${formationPct(comp.cavalry, total)})` : ''}`,
+    `🛡 Infantry: ${fmt(comp.infantry)}${total ? ` (${formationPct(comp.infantry, total)})` : ''}`,
+    `${totalLabel}: ${fmt(total)}`,
+    comp.status ? `Status: ${comp.status}` : null,
+  ].filter(Boolean);
+}
+
+function formatJoinerSetupForCopy(title, setup, input, recommendation = null) {
+  if (!setup) {
+    return [
+      title,
+      'N/A — not enough troops to support this setup.',
+    ];
+  }
+  const grade = formationQualityGrade(setup, input);
+  let status = statusRatingText(setup.comp.ratio);
+  if (setup.belowFloor) {
+    status = 'Not Recommended — below the 32,000 preferred floor.';
+  } else if (recommendation && setup.score + 5 < recommendation.score) {
+    status += ' — lower quality than APX Recommendation.';
+  }
+  return [
+    title,
+    `Quality: ${grade.grade} Rank · ${grade.label}`,
+    `Joiners: ${fmt(setup.joiners)}`,
+    `Troops per Joiner: ${fmt(setup.size)}`,
+    `Total Joiner Output: ${fmt(setup.totalOutput)}`,
+    `Archer Ratio: ${pct(setup.comp.ratio)}`,
+    `Status: ${status}`,
+    ...formatFormationForCopy('Joiner Formation', setup.comp, 'Per Joiner Total'),
+  ];
+}
+
 function buildCopyRecommendationText() {
   const input = getInputs();
-  const { recommended } = analyze(input);
+  const { recommended, maxMarchSetup } = analyze(input);
   if (!recommended) {
     return 'APX Tools could not generate a supported Bear Hunt recommendation with the current inputs.';
   }
-  const grade = gradeFromScore(recommended.score);
-  const leaderLines = recommended.leader ? [
-    '',
-    '👑 Rally Leader Formation',
-    `🏹 Archers: ${fmt(recommended.leader.archers)}`,
-    `🐎 Cavalry: ${fmt(recommended.leader.cavalry)}`,
-    `🛡 Infantry: ${fmt(recommended.leader.infantry)}`,
-    `Total: ${fmt(recommended.leader.total)}`,
-    `Status: ${recommended.leader.status}`,
-  ] : [];
 
-  return [
-    '🐻 APX Tools - Bear Hunt Recommendation',
-    '',
-    `🏆 Quality: ${grade.grade} Rank · ${grade.label}`,
+  const lines = [
+    '🐻 APX Tools - Bear Hunt Optimizer Output',
+    `Version: ${VERSION}`,
+    `Engine: ${ENGINE_VERSION} (${ENGINE_NAME})`,
     `Priority: ${strategyLabel(input.strategy)}`,
     '',
-    `⚔️ Joiners: ${fmt(recommended.joiners)}`,
-    `👥 Troops per Joiner: ${fmt(recommended.size)}`,
-    `📊 Total Joiner Output: ${fmt(recommended.totalOutput)}`,
-    `🏹 Archer Ratio: ${pct(recommended.comp.ratio)}`,
+    'Inputs',
+    `🛡 Infantry: ${fmt(input.troops.infantry)}`,
+    `🐎 Cavalry: ${fmt(input.troops.cavalry)}`,
+    `🏹 Archers: ${fmt(input.troops.archers)}`,
+    `Maximum Marches: ${fmt(input.maxMarches)}`,
+    `Alliance Rally Cap: ${fmt(input.cap)}`,
+    `Rally Leader Target Size: ${fmt(input.leaderSize)}`,
     '',
-    '⚔️ Joiner Formation',
-    `🏹 Archers: ${fmt(recommended.comp.archers)}`,
-    `🐎 Cavalry: ${fmt(recommended.comp.cavalry)}`,
-    `🛡 Infantry: ${fmt(recommended.comp.infantry)}`,
-    ...leaderLines,
-    '',
-    'Generated by APX Tools',
-  ].join('\n');
-}
+    ...formatJoinerSetupForCopy('🏆 APX Recommended Setup', recommended, input),
+  ];
 
+  if (recommended.leader) {
+    lines.push('', ...formatFormationForCopy('👑 Recommended Rally Leader Formation', recommended.leader, 'Leader Total'));
+  }
+
+  lines.push('', ...formatJoinerSetupForCopy('⚔️ Maximum Marches Setup', maxMarchSetup, input, recommended));
+
+  if (maxMarchSetup && maxMarchSetup.leader) {
+    lines.push('', ...formatFormationForCopy('👑 Maximum Marches Rally Leader Formation', maxMarchSetup.leader, 'Leader Total'));
+  } else if (input.leaderSize > 0) {
+    lines.push('', '👑 Maximum Marches Rally Leader Formation', 'N/A');
+  }
+
+  lines.push('', 'Generated by APX Tools');
+  return lines.join('\n');
+}
 async function copyRecommendation() {
   const text = buildCopyRecommendationText();
   try {

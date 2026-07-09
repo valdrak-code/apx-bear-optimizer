@@ -7,7 +7,7 @@
   <title>APX Tools | Changelog</title>
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="shortcut icon" href="/favicon.ico" />
-  <link rel="stylesheet" href="styles.min.css?v=2.3.5-beta" />
+  <link rel="stylesheet" href="styles.min.css?v=2.4.7-rc1" />
 </head>
 <body>
   <main class="app-shell guide-shell">
@@ -17,7 +17,7 @@
         <p class="eyebrow">APX Tools</p>
         <h1>Changelog</h1>
         <p>Track major updates, testing milestones, and release notes.</p>
-        <span class="version-pill">v2.3.5 Beta</span>
+        <span class="version-pill">v2.4.7 RC1</span>
       </div>
     </header>
 
@@ -30,39 +30,60 @@
 
     <section class="card guide-hero-card">
       <div class="card-kicker">📋 Release Notes</div>
-      <h2>Current Beta Release</h2>
-      <p>This changelog tracks meaningful APX Tools updates. Minor behind-the-scenes edits may not always be listed individually.</p>
+      <h2>Current Release Candidate</h2>
+      <p>This changelog tracks meaningful APX Tools updates. Development builds are summarized by release theme so testers can see what actually changed.</p>
     </section>
 
     <section class="guide-grid">
       <article class="card guide-card full-width changelog-entry">
-        <h2>v2.3.5 Beta — Adaptive Optimization Beta</h2>
-        <p><strong>Status:</strong> Beta testing</p>
+        <h2>v2.4.7 RC1 — Adaptive Formation Engine Release Candidate</h2>
+        <p><strong>Status:</strong> Release Candidate</p>
         <ul>
-          <li>Removed the Balanced strategy after testing showed players are effectively optimizing as either joiners or Rally Leaders.</li>
-          <li>Removed the strategy dropdown and replaced it with one clearer toggle: <strong>Prioritize Rally Leader Formation</strong>.</li>
-          <li>Rally Leader March Size is now always visible and always used to show a Rally Leader Formation reference.</li>
-          <li>Joiner-first mode now optimizes joiner Formations while still showing a Rally Leader Formation reference.</li>
-          <li>Rally Leader priority mode now prioritizes the Rally Leader Formation while keeping joiners viable.</li>
-          <li>Restored polished pill-style navigation across pages.</li>
-          <li>Fixed Rally Leader priority toggle layout and removed the awkward gold hover box around the checkbox area.</li>
-          <li>Updated Guide, About, Changelog, README, Roadmap, and Optimizer Rules for the v2.3 beta direction.</li>
+          <li>Promoted the v2.4 development work into a release-candidate package for broader testing.</li>
+          <li>Updated visible Recommendation Quality so it grades the Joiner Formation directly instead of being pulled down by the Rally Leader reference.</li>
+          <li>Elite full-cap, high-Archer joiner formations can now display S Rank appropriately.</li>
+          <li>Preserved Rally Leader quality inside the hidden optimizer score without letting it confuse the visible joiner rank.</li>
+          <li>Kept the expanded Copy Output so test reports include inputs, APX Recommended Setup, Rally Leader Formation, Maximum Marches Setup, Maximum Marches Rally Leader Formation, version, engine, and priority state.</li>
         </ul>
       </article>
 
       <article class="card guide-card full-width changelog-entry">
-        <h2>v2.3.0–v2.3.4 Dev Series</h2>
-        <p><strong>Status:</strong> Development testing</p>
+        <h2>v2.4 Development Series — Adaptive Formation Engine</h2>
+        <p><strong>Status:</strong> Development foundation for RC1</p>
         <ul>
-          <li>Added Formation Integrity rules including a minimum Infantry presence and Cavalry floor targets.</li>
-          <li>Added Archer scaling beyond 70% for high-Archer joiner Formations.</li>
-          <li>Added automatic advanced Rally Leader milestone detection: 1 Infantry, roughly 10% Cavalry, and roughly 90% Archers.</li>
-          <li>Protected joiner Formations so advanced Rally Leader progression only activates when joiners remain 70%+ Archers.</li>
+          <li>Introduced the <strong>Adaptive Formation Engine</strong> approach for candidate evaluation.</li>
+          <li>Refactored optimizer behavior so Rally Leader Priority changes candidate weighting instead of relying on fully separate construction paths.</li>
+          <li>Added exact troop allocation inside optimizer math, removing intentional rounding from the engine.</li>
+          <li>Improved Candidate/Recommendation packaging so APX Recommended and Maximum Marches outputs stay consistent when they represent the same march count.</li>
+          <li>Fixed cases where Maximum Marches could show a conflicting or stronger Rally Leader Formation than the APX Recommended package when both used the same number of marches.</li>
+          <li>Improved Rally Leader Priority weighting so enabling the toggle meaningfully favors stronger Rally Leader Formations.</li>
+          <li>Improved flexible Rally Leader target handling so the entered Rally Leader Target Size is treated as an ideal target rather than an absolute forced size.</li>
+          <li>Added fuller practical Rally Leader Formation candidates so the engine is not trapped by exact 10 / 10 / 80 when Cavalry backfill creates a better usable formation.</li>
+          <li>Expanded Leader and Joiner candidate comparison around total formation usefulness rather than ratio-only stopping points.</li>
+          <li>Improved low- and mid-troop behavior where forcing one side too hard could previously create weak or misleading outputs.</li>
+        </ul>
+      </article>
+
+      <article class="card guide-card full-width changelog-entry">
+        <h2>v2.3 Beta Series — Role Simplification & Formation Integrity</h2>
+        <p><strong>Status:</strong> Beta / engine stabilization</p>
+        <ul>
+          <li>Removed the Balanced strategy after testing showed players are effectively optimizing as either joiners or Rally Leaders.</li>
+          <li>Removed the strategy dropdown and replaced it with one clearer toggle: <strong>Prioritize Rally Leader Formation</strong>.</li>
+          <li>Rally Leader Target Size is now always visible and always used to show a Rally Leader Formation reference.</li>
+          <li>Joiner-first mode optimizes Joiner Formations while still showing a Rally Leader Formation reference.</li>
+          <li>Rally Leader priority mode prioritizes the Rally Leader Formation while keeping joiners viable.</li>
+          <li>Added Formation Integrity rules including minimum Infantry presence and Cavalry viability checks.</li>
+          <li>Added Archer scaling beyond the original 70% joiner target for high-Archer accounts.</li>
+          <li>Added automatic advanced Rally Leader milestone behavior for 1 Infantry / 10% Cavalry / 90% Archers when the account can support it.</li>
+          <li>Protected joiner viability so advanced Rally Leader progression does not activate at the expense of functional joiner marches.</li>
           <li>Added exact count plus percentage display for Rally Leader Formation cards.</li>
           <li>Improved advanced Archer sharing between joiners and Rally Leader Formation.</li>
+          <li>Improved Cavalry backfill behavior toward the Alliance Rally Cap when safe.</li>
           <li>Fixed high-Archer candidate rejection caused by tiny rounding leftovers.</li>
-          <li>Improved advanced-mode Cavalry backfill so joiners continue pushing toward the Alliance Rally Cap Limit when viable.</li>
           <li>Fixed APX Coach so it no longer recommends reducing marches just to chase 100% Archer joiners.</li>
+          <li>Restored polished pill-style navigation across pages.</li>
+          <li>Cleaned up the Rally Leader priority toggle layout and helper text.</li>
           <li>Added configurable APX / Kingdom 1886 language foundation for future expansion.</li>
           <li>Added OPTIMIZER_RULES.md and ROADMAP.md for future development tracking.</li>
         </ul>
@@ -116,9 +137,9 @@
 
     <footer class="site-footer">
       <p><strong>APX Tools</strong></p>
-      <p>Bear Hunt Optimizer · v2.3.5 Beta</p>
+      <p>Bear Hunt Optimizer · v2.4.7 RC1</p>
       <p>Created by Valdrak</p>
-      <p>Powered by the APX Optimization Engine</p>
+      <p>Powered by the Adaptive Formation Engine</p>
       <p><strong>Maximize Damage. Minimize Waste. Explain Why.</strong></p>
     </footer>
   </main>
