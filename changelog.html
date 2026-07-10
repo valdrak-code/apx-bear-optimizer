@@ -7,7 +7,7 @@
   <title>APX Tools | Changelog</title>
   <link rel="icon" href="/favicon.ico" sizes="any" />
   <link rel="shortcut icon" href="/favicon.ico" />
-  <link rel="stylesheet" href="styles.min.css?v=2.4.7-rc1" />
+  <link rel="stylesheet" href="styles.min.css?v=2.4.9-rc3" />
 </head>
 <body>
   <main class="app-shell guide-shell">
@@ -17,7 +17,7 @@
         <p class="eyebrow">APX Tools</p>
         <h1>Changelog</h1>
         <p>Track major updates, testing milestones, and release notes.</p>
-        <span class="version-pill">v2.4.7 RC1</span>
+        <span class="version-pill">v2.4.9 RC3</span>
       </div>
     </header>
 
@@ -35,6 +35,18 @@
     </section>
 
     <section class="guide-grid">
+      <article class="card guide-card full-width changelog-entry">
+        <h2>v2.4.9 RC3 — Input Performance Patch</h2>
+        <p><strong>Status:</strong> Release Candidate</p>
+        <ul>
+          <li>Stopped the optimizer from recalculating on every keystroke while troop values are being entered.</li>
+          <li>Results now update when <strong>LET'S GOOOO!</strong> is pressed, eliminating heavy typing lag on slower phones and computers.</li>
+          <li>Removed duplicate calculations previously triggered by input, change, and blur events.</li>
+          <li>Kept comma formatting on field exit without rerunning the Adaptive Formation Engine.</li>
+          <li>No formation-logic changes; Adaptive Formation Engine remains v2.4.7.</li>
+        </ul>
+      </article>
+
       <article class="card guide-card full-width changelog-entry">
         <h2>v2.4.7 RC1 — Adaptive Formation Engine Release Candidate</h2>
         <p><strong>Status:</strong> Release Candidate</p>
@@ -137,7 +149,7 @@
 
     <footer class="site-footer">
       <p><strong>APX Tools</strong></p>
-      <p>Bear Hunt Optimizer · v2.4.7 RC1</p>
+      <p>Bear Hunt Optimizer · v2.4.9 RC3</p>
       <p>Created by Valdrak</p>
       <p>Powered by the Adaptive Formation Engine</p>
       <p><strong>Maximize Damage. Minimize Waste. Explain Why.</strong></p>

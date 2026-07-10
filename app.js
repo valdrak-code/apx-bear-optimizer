@@ -1,9 +1,9 @@
-/* APX Tools Bear Hunt Optimizer v2.4.7 RC1 Source
+/* APX Tools Bear Hunt Optimizer v2.4.9 RC3 Source
    Created by Valdrak. Production build is app.min.js. */
 
-const VERSION = '2.4.7 RC1';
+const VERSION = '2.4.9 RC3';
 const ENGINE_VERSION = '2.4.7';
-const BUILD_DATE = '2026-07-09';
+const BUILD_DATE = '2026-07-10';
 const ENGINE_NAME = 'Adaptive Formation Engine';
 const ENGINE_MODEL = 'Unified Candidate Pool + Flexible Leader Targets';
 const APP_CONFIG = {
@@ -1236,15 +1236,30 @@ async function copyRecommendation() {
   }
 }
 
-for (const key of ['infantry', 'cavalry', 'archers', 'maxMarches', 'allianceCap', 'includeLeader', 'leaderSize']) {
-  els[key].addEventListener('input', render);
-  els[key].addEventListener('change', render);
+// v2.4.9 RC3 input performance patch:
+// Do not run the full optimizer on every keystroke. Text/select/toggle changes only
+// mark the visible result as stale; the engine runs when LET'S GOOOO! is pressed.
+function markResultsDirty() {
+  setGoButtonState('idle');
+  if (els.copyStatus) els.copyStatus.textContent = "Inputs changed. Press LET'S GOOOO! to update the results.";
 }
+
+for (const key of ['infantry', 'cavalry', 'archers', 'maxMarches', 'allianceCap', 'leaderSize']) {
+  els[key].addEventListener('input', markResultsDirty);
+  els[key].addEventListener('change', markResultsDirty);
+}
+
+// Priority switching is a deliberate action rather than free-form typing.
+// Re-render immediately so users can compare modes without pressing LET'S GOOOO! again.
+els.includeLeader.addEventListener('change', () => {
+  render();
+  els.details.classList.remove('hidden');
+  if (els.copyStatus) els.copyStatus.textContent = '';
+});
 
 for (const key of ['infantry', 'cavalry', 'archers', 'leaderSize']) {
   els[key].addEventListener('blur', () => {
     formatInputValue(els[key]);
-    render();
   });
 }
 
@@ -1277,6 +1292,10 @@ els.goButton.addEventListener('click', () => {
   setGoButtonState('working');
 
   window.setTimeout(() => {
+    // Run the optimizer once, after the user finishes entering values.
+    render();
+    if (els.copyStatus) els.copyStatus.textContent = '';
+
     // LET'S GOOOO is an open-and-scroll action, not a collapse toggle.
     // Results stay open after the first click so users can repeatedly jump back to the recommendation.
     els.details.classList.remove('hidden');
