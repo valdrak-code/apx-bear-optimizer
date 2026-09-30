@@ -1,9 +1,9 @@
-/* APX Tools Bear Hunt Optimizer v2.4.9 RC3 Source
+/* APX Tools Bear Hunt Optimizer v2.4.10 RC4 Source
    Created by Valdrak. Production build is app.min.js. */
 
-const VERSION = '2.4.9 RC3';
-const ENGINE_VERSION = '2.4.7';
-const BUILD_DATE = '2026-07-10';
+const VERSION = '2.4.10 RC4';
+const ENGINE_VERSION = '2.4.10';
+const BUILD_DATE = '2026-07-09';
 const ENGINE_NAME = 'Adaptive Formation Engine';
 const ENGINE_MODEL = 'Unified Candidate Pool + Flexible Leader Targets';
 const APP_CONFIG = {
@@ -1079,13 +1079,39 @@ function renderDeveloperMode(allCandidates, recommended, maxMarchSetup, input, e
   }
 }
 
+const analysisCache = new Map();
+
+function analysisCacheKey(input) {
+  return JSON.stringify(input);
+}
+
+function getCachedAnalysis(input) {
+  const key = analysisCacheKey(input);
+  if (analysisCache.has(key)) return { result: analysisCache.get(key), cached: true };
+  const result = analyze(input);
+  analysisCache.set(key, result);
+  return { result, cached: false };
+}
+
+function precomputePriorityPair() {
+  const input = getInputs();
+  const alternate = {
+    ...input,
+    includeLeader: !input.includeLeader,
+    strategy: input.includeLeader ? 'joiners' : 'leader',
+  };
+  getCachedAnalysis(input);
+  getCachedAnalysis(alternate);
+}
+
 function render() {
   const input = getInputs();
   els.leaderSettings.style.display = 'block';
   els.leaderBreakdownCard.style.display = 'block';
 
   const analysisStart = performance.now();
-  const { recommended, maxMarchSetup, allCandidates } = analyze(input);
+  const cachedAnalysis = getCachedAnalysis(input);
+  const { recommended, maxMarchSetup, allCandidates } = cachedAnalysis.result;
   const analysisElapsed = performance.now() - analysisStart;
 
   if (!recommended) {
@@ -1181,7 +1207,7 @@ function formatJoinerSetupForCopy(title, setup, input, recommendation = null) {
 
 function buildCopyRecommendationText() {
   const input = getInputs();
-  const { recommended, maxMarchSetup } = analyze(input);
+  const { result: { recommended, maxMarchSetup } } = getCachedAnalysis(input);
   if (!recommended) {
     return 'APX Tools could not generate a supported Bear Hunt recommendation with the current inputs.';
   }
@@ -1236,11 +1262,9 @@ async function copyRecommendation() {
   }
 }
 
-// v2.4.9 RC3 input performance patch:
-// Do not run the full optimizer on every keystroke. Text/select/toggle changes only
-// mark the visible result as stale; the engine runs when LET'S GOOOO! is pressed.
 function markResultsDirty() {
-  setGoButtonState('idle');
+  analysisCache.clear();
+  els.details.classList.add('hidden');
   if (els.copyStatus) els.copyStatus.textContent = "Inputs changed. Press LET'S GOOOO! to update the results.";
 }
 
@@ -1249,22 +1273,19 @@ for (const key of ['infantry', 'cavalry', 'archers', 'maxMarches', 'allianceCap'
   els[key].addEventListener('change', markResultsDirty);
 }
 
-// Priority switching is a deliberate action rather than free-form typing.
-// Re-render immediately so users can compare modes without pressing LET'S GOOOO! again.
-els.includeLeader.addEventListener('change', () => {
-  render();
-  els.details.classList.remove('hidden');
-  if (els.copyStatus) els.copyStatus.textContent = '';
-});
-
 for (const key of ['infantry', 'cavalry', 'archers', 'leaderSize']) {
   els[key].addEventListener('blur', () => {
     formatInputValue(els[key]);
   });
 }
 
+els.includeLeader.addEventListener('change', () => {
+  render();
+});
+
 
 els.resetButton.addEventListener('click', () => {
+  analysisCache.clear();
   applyDefaults();
   els.details.classList.add('hidden');
   if (els.copyStatus) els.copyStatus.textContent = '';
@@ -1290,12 +1311,11 @@ function setGoButtonState(state) {
 
 els.goButton.addEventListener('click', () => {
   setGoButtonState('working');
+  analysisCache.clear();
+  render();
+  precomputePriorityPair();
 
   window.setTimeout(() => {
-    // Run the optimizer once, after the user finishes entering values.
-    render();
-    if (els.copyStatus) els.copyStatus.textContent = '';
-
     // LET'S GOOOO is an open-and-scroll action, not a collapse toggle.
     // Results stay open after the first click so users can repeatedly jump back to the recommendation.
     els.details.classList.remove('hidden');
